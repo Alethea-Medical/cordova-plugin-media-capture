@@ -58,6 +58,9 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
+import android.util.Log;
+import android.widget.TextView;
 
 public class Capture extends CordovaPlugin {
 
@@ -88,16 +91,9 @@ public class Capture extends CordovaPlugin {
 
     private final PendingRequests pendingRequests = new PendingRequests();
 
+    private Intent[] intentArray;
     private int numPics;                            // Number of pictures before capture activity
     private Uri imageUri;
-
-//    public void setContext(Context mCtx)
-//    {
-//        if (CordovaInterface.class.isInstance(mCtx))
-//            cordova = (CordovaInterface) mCtx;
-//        else
-//            LOG.d(LOG_TAG, "ERROR: You must use the CordovaInterface for this to work correctly. Please implement it in your activity");
-//    }
 
     @Override
     protected void pluginInitialize() {
@@ -140,10 +136,8 @@ public class Capture extends CordovaPlugin {
             this.captureAudio(pendingRequests.createRequest(CAPTURE_AUDIO, options, callbackContext));
         }
         else if (action.equals("captureImage")) {
+
             this.captureImage(pendingRequests.createRequest(CAPTURE_IMAGE, options, callbackContext));
-        }
-        else if (action.equals("captureVideo")) {
-            this.captureVideo(pendingRequests.createRequest(CAPTURE_VIDEO, options, callbackContext));
         }
         else {
             return false;
@@ -292,17 +286,43 @@ public class Capture extends CordovaPlugin {
         // Save the number of images currently on disk for later
         this.numPics = queryImgDB(whichContentStore()).getCount();
 
-        Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+        //setup chooser where user can select if they want to take a video or a image using native camera
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
-        ContentResolver contentResolver = this.cordova.getActivity().getContentResolver();
-        ContentValues cv = new ContentValues();
-        cv.put(MediaStore.Images.Media.MIME_TYPE, IMAGE_JPEG);
-        imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
-        LOG.d(LOG_TAG, "Taking a picture and saving to: " + imageUri.toString());
+        try {
 
-        intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, imageUri);
 
-        this.cordova.startActivityForResult((CordovaPlugin) this, intent, req.requestCode);
+            //create image uri to save photo taken 
+            ContentResolver contentResolver = this.cordova.getActivity().getContentResolver();
+            ContentValues cv = new ContentValues();
+            cv.put(MediaStore.Images.Media.MIME_TYPE, IMAGE_JPEG);
+            imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
+
+            LOG.e(LOG_TAG, "Image URI created for chooser: " + imageUri.toString());
+
+
+            //add output location for images 
+            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+            takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+
+            if(Build.VERSION.SDK_INT > 7){
+                takeVideoIntent.putExtra("android.intent.extra.durationLimit", req.duration);
+                takeVideoIntent.putExtra("android.intent.extra.videoQuality", req.quality);
+            }
+
+            Intent chooserIntent = Intent.createChooser(takePictureIntent, "Capture Video or Image");
+            //chooserIntent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, imageUri);
+
+            //add video to chooser as an option 
+            chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[] { takeVideoIntent });
+            
+       
+            this.cordova.startActivityForResult((CordovaPlugin)this, chooserIntent, req.requestCode);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static void createWritableFile(File file) throws IOException {
@@ -310,20 +330,6 @@ public class Capture extends CordovaPlugin {
         file.setWritable(true, false);
     }
 
-    /**
-     * Sets up an intent to capture video.  Result handled by onActivityResult()
-     */
-    private void captureVideo(Request req) {
-        if (isMissingCameraPermissions(req)) return;
-
-        Intent intent = new Intent(android.provider.MediaStore.ACTION_VIDEO_CAPTURE);
-
-        if(Build.VERSION.SDK_INT > 7){
-            intent.putExtra("android.intent.extra.durationLimit", req.duration);
-            intent.putExtra("android.intent.extra.videoQuality", req.quality);
-        }
-        this.cordova.startActivityForResult((CordovaPlugin) this, intent, req.requestCode);
-    }
 
     /**
      * Called when the video view exits.
@@ -336,7 +342,6 @@ public class Capture extends CordovaPlugin {
      */
     public void onActivityResult(int requestCode, int resultCode, final Intent intent) {
         final Request req = pendingRequests.get(requestCode);
-
         // Result received okay
         if (resultCode == Activity.RESULT_OK) {
             Runnable processActivityResult = new Runnable() {
@@ -347,10 +352,12 @@ public class Capture extends CordovaPlugin {
                             onAudioActivityResult(req, intent);
                             break;
                         case CAPTURE_IMAGE:
-                            onImageActivityResult(req);
-                            break;
-                        case CAPTURE_VIDEO:
-                            onVideoActivityResult(req, intent);
+
+                            if( intent == null ){
+                                onMediaActivityResult(req);
+                            }else{
+                                onMediaActivityResult(req, intent);
+                            }
                             break;
                     }
                 }
@@ -398,11 +405,33 @@ public class Capture extends CordovaPlugin {
         }
     }
 
-    public void onImageActivityResult(Request req) {
+
+    public void onMediaActivityResult(Request req) {
+        Log.e(LOG_TAG, String.valueOf(imageUri));
         // Add image to results
         req.results.put(createMediaFile(imageUri));
 
         checkForDuplicateImage();
+        /*
+         * Get the file's content URI from the incoming Intent,
+         * then query the server app to get the file's display name
+         * and size.
+         */
+        Uri returnUri = imageUri;
+        Cursor returnCursor =
+                cordova.getActivity().getContentResolver().query(returnUri, null, null, null, null);
+        /*
+         * Get the column indexes of the data in the Cursor,
+         * move to the first row in the Cursor, get the data,
+         * and display it.
+         */
+        int nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+        int sizeIndex = returnCursor.getColumnIndex(OpenableColumns.SIZE);
+        returnCursor.moveToFirst();
+
+        Log.e(LOG_TAG, returnCursor.getString(nameIndex));
+        Log.e(LOG_TAG, Long.toString(returnCursor.getLong(sizeIndex)));
+
 
         if (req.results.length() >= req.limit) {
             // Send Uri back to JavaScript for viewing image
@@ -413,14 +442,15 @@ public class Capture extends CordovaPlugin {
         }
     }
 
-    public void onVideoActivityResult(Request req, Intent intent) {
+    public void onMediaActivityResult(Request req, Intent intent) {
+
+
         Uri data = null;
 
         if (intent != null){
             // Get the uri of the video clip
             data = intent.getData();
         }
-
         if( data == null){
             File movie = new File(getTempDirectoryPath(), "Capture.avi");
             data = Uri.fromFile(movie);
@@ -438,7 +468,7 @@ public class Capture extends CordovaPlugin {
                 pendingRequests.resolveWithSuccess(req);
             } else {
                 // still need to capture more video clips
-                captureVideo(req);
+                captureImage(req);
             }
         }
     }
@@ -567,7 +597,7 @@ public class Capture extends CordovaPlugin {
                 this.captureImage(req);
                 break;
             case CAPTURE_VIDEO:
-                this.captureVideo(req);
+                this.captureImage(req);
                 break;
         }
     }
