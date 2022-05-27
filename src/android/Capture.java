@@ -407,7 +407,6 @@ public class Capture extends CordovaPlugin {
 
 
     public void onMediaActivityResult(Request req) {
-        Log.e(LOG_TAG, String.valueOf(imageUri));
         // Add image to results
         req.results.put(createMediaFile(imageUri));
 
@@ -417,22 +416,7 @@ public class Capture extends CordovaPlugin {
          * then query the server app to get the file's display name
          * and size.
          */
-        Uri returnUri = imageUri;
-        Cursor returnCursor =
-                cordova.getActivity().getContentResolver().query(returnUri, null, null, null, null);
-        /*
-         * Get the column indexes of the data in the Cursor,
-         * move to the first row in the Cursor, get the data,
-         * and display it.
-         */
-        int nameIndex = returnCursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-        int sizeIndex = returnCursor.getColumnIndex(OpenableColumns.SIZE);
-        returnCursor.moveToFirst();
-
-        Log.e(LOG_TAG, returnCursor.getString(nameIndex));
-        Log.e(LOG_TAG, Long.toString(returnCursor.getLong(sizeIndex)));
-
-
+    
         if (req.results.length() >= req.limit) {
             // Send Uri back to JavaScript for viewing image
             pendingRequests.resolveWithSuccess(req);
