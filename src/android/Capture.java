@@ -307,10 +307,10 @@ public class Capture extends CordovaPlugin {
             videoUri = contentResolverVideo.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cvv);
 
 
-            LOG.e(LOG_TAG, "Image URI of chooser: " + imageUri.toString());
-            LOG.e(LOG_TAG, "video URI of chooser: " + videoUri.toString());
+            LOG.i(LOG_TAG, "Image URI of chooser: " + imageUri.toString());
+            LOG.i(LOG_TAG, "video URI of chooser: " + videoUri.toString());
 
-            
+
             //intent to launch the camera for video
             Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
             //set video save path in the intent
@@ -328,9 +328,7 @@ public class Capture extends CordovaPlugin {
             //set the image save path in the intent
             takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
             takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-          
-
-
+            
 //          create the chooser to select between the camera and the video camera
             Intent chooserIntent = Intent.createChooser(takePictureIntent, "Capture Image or Video");
             chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{takeVideoIntent});
@@ -384,7 +382,7 @@ public class Capture extends CordovaPlugin {
         // If canceled
         else if (resultCode == Activity.RESULT_CANCELED) {
             // If we have partial results send them back to the user
-            if (req.results.length() > 0) {
+            if (req.results.length() > 0 && req.results != null) {
                 pendingRequests.resolveWithSuccess(req);
             }
             // user canceled the action
@@ -396,10 +394,12 @@ public class Capture extends CordovaPlugin {
         else {
             // If we have partial results send them back to the user
             if (req.results.length() > 0) {
+             
                 pendingRequests.resolveWithSuccess(req);
             }
             // something bad happened
             else {
+            
                 pendingRequests.resolveWithFailure(req, createErrorObject(CAPTURE_NO_MEDIA_FILES, "Did not complete!"));
             }
         }
@@ -490,8 +490,7 @@ public class Capture extends CordovaPlugin {
             pendingRequests.resolveWithFailure(req, createErrorObject(CAPTURE_NO_MEDIA_FILES, "Error: data is null"));
         }
         else {
-
-
+            
             req.results.put(createMediaFile(videoUri));
 
             if (req.results.length() >= req.limit) {
@@ -605,7 +604,7 @@ public class Capture extends CordovaPlugin {
         // delete the duplicate file if the difference is 2
         if ((currentNumOfImages - numPics) == 2) {
             cursor.moveToLast();
-            int id = Integer.valueOf(cursor.getString(cursor.getColumnIndex(MediaStore.Images.Media._ID))) - 1;
+            int id = Integer.parseInt(cursor.getString(cursor.getColumnIndex(MediaStore.Images.Media._ID))) - 1;
             Uri uri = Uri.parse(contentStore + "/" + id);
             this.cordova.getActivity().getContentResolver().delete(uri, null, null);
         }
@@ -629,8 +628,6 @@ public class Capture extends CordovaPlugin {
                 this.captureAudio(req);
                 break;
             case CAPTURE_IMAGE:
-                this.captureImage(req);
-                break;
             case CAPTURE_VIDEO:
                 this.captureImage(req);
                 break;
