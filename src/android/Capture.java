@@ -19,18 +19,14 @@
 package org.apache.cordova.mediacapture;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import android.content.ActivityNotFoundException;
-import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 
@@ -60,9 +56,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.provider.OpenableColumns;
-import android.util.Log;
-import android.widget.TextView;
+import android.util.Pair;
 
 public class Capture extends CordovaPlugin {
 
@@ -281,53 +275,26 @@ public class Capture extends CordovaPlugin {
     }
 
     /**
-     * Sets up an intent to capture images.  Result handled by onActivityResult()
+     * The name is misleading and needs to be updated.
+     * Sets up an intent to capture media.  Result handled by onActivityResult()
      */
     private void captureImage(Request req) {
         if (isMissingCameraPermissions(req)) return;
 
         // Save the number of images currently on disk for later
         this.numPics = queryImgDB(whichContentStore()).getCount();
-
-
-
+        
         try {
-
-            //create content uri for image
             ContentResolver contentResolver = this.cordova.getActivity().getContentResolver();
-            ContentValues cv = new ContentValues();
-            cv.put(MediaStore.Images.Media.MIME_TYPE, IMAGE_JPEG);
+            Pair mediaTypes = setupContentValues();
 
-            //create content uri for video
-            ContentResolver contentResolverVideo = this.cordova.getActivity().getContentResolver();
-            ContentValues cvv = new ContentValues();
-            cvv.put(MediaStore.Video.Media.MIME_TYPE, VIDEO_MP4);
-
-            imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
-            videoUri = contentResolverVideo.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cvv);
-
-
-            LOG.i(LOG_TAG, "Image URI of chooser: " + imageUri.toString());
-            LOG.i(LOG_TAG, "video URI of chooser: " + videoUri.toString());
-
-
-            //intent to launch the camera for video
-            Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
-            //set video save path in the intent
-            takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri);
-            takeVideoIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-
-            if(Build.VERSION.SDK_INT > 7){
-                takeVideoIntent.putExtra("android.intent.extra.durationLimit", req.duration);
-                takeVideoIntent.putExtra("android.intent.extra.videoQuality", req.quality);
-            }
-
-            //intent to launch the camera for image caputure
-            Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            //set the image save path in the intent
-            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
-            takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, (ContentValues) mediaTypes.first);
+            videoUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, (ContentValues) mediaTypes.second);
+            
+//            LOG.i(LOG_TAG, "Image URI of chooser: " + imageUri.toString());
+//            LOG.i(LOG_TAG, "video URI of chooser: " + videoUri.toString());
+            Intent takeVideoIntent = setupVideoIntent(req);
+            Intent takePictureIntent = setupPictureIntent(req);
             
 //          create the chooser to select between the camera and the video camera
             Intent chooserIntent = Intent.createChooser(takePictureIntent, "Capture Image or Video");
@@ -337,6 +304,68 @@ public class Capture extends CordovaPlugin {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Sets up an intent to capture images.  Result handled by onActivityResult()
+     */
+    private void captureMultipleImages(Request req) {
+        if (isMissingCameraPermissions(req)) return;
+
+        // Save the number of images currently on disk for later
+        this.numPics = queryImgDB(whichContentStore()).getCount();
+
+        Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+
+        ContentResolver contentResolver = this.cordova.getActivity().getContentResolver();
+        ContentValues cv = new ContentValues();
+        cv.put(MediaStore.Images.Media.MIME_TYPE, IMAGE_JPEG);
+        
+        imageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv);
+        LOG.d(LOG_TAG, "Taking a picture and saving to: " + imageUri.toString());
+
+        intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, imageUri);
+
+        this.cordova.startActivityForResult((CordovaPlugin) this, intent, req.requestCode);
+    }
+
+    private Intent setupPictureIntent(Request req){
+        //intent to launch the camera for image caputure
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
+        //set the image save path in the intent
+        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+        takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        return takePictureIntent;
+    }
+
+    private Intent setupVideoIntent(Request req){
+        //intent to launch the camera for video
+        Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+
+        //set video save path in the intent
+        takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri);
+        takeVideoIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+
+        if(Build.VERSION.SDK_INT > 7){
+            takeVideoIntent.putExtra("android.intent.extra.durationLimit", req.duration);
+            takeVideoIntent.putExtra("android.intent.extra.videoQuality", req.quality);
+        }
+        return takeVideoIntent;
+    }
+    private Pair setupContentValues(){
+        //create content uri for image
+
+        ContentValues cv = new ContentValues();
+        cv.put(MediaStore.Images.Media.MIME_TYPE, IMAGE_JPEG);
+        //create content uri for video
+        ContentValues cvVideo = new ContentValues();
+        cvVideo.put(MediaStore.Video.Media.MIME_TYPE, VIDEO_MP4);
+        
+        return new Pair(cv,cvVideo);
+
+
     }
 
     private static void createWritableFile(File file) throws IOException {
@@ -468,7 +497,7 @@ public class Capture extends CordovaPlugin {
             pendingRequests.resolveWithSuccess(req);
         } else {
             // still need to capture more images
-            captureImage(req);
+            captureMultipleImages(req);
         }
     }
 
@@ -492,14 +521,9 @@ public class Capture extends CordovaPlugin {
         else {
             
             req.results.put(createMediaFile(videoUri));
+            // Send Uri back to JavaScript for viewing video
+            pendingRequests.resolveWithSuccess(req);
 
-            if (req.results.length() >= req.limit) {
-                // Send Uri back to JavaScript for viewing video
-                pendingRequests.resolveWithSuccess(req);
-            } else {
-                // still need to capture more video clips
-                captureImage(req);
-            }
         }
     }
 
