@@ -499,14 +499,8 @@ public class Capture extends CordovaPlugin {
         req.results.put(createMediaFile(imageUri));
         checkForDuplicateImage();
 
-//        if (req.results.length() >= req.limit) {
-
             // Send Uri back to JavaScript for viewing image
             pendingRequests.resolveWithSuccess(req);
-//        } else {
-//            // still need to capture more images
-//            captureImage(req);
-//        }
     }
 
     public void onVideoActivityResult(Request req) {
@@ -529,7 +523,6 @@ public class Capture extends CordovaPlugin {
 
             //Add these commented lines back in if you want the plugin to control the reexecution of the camera intents instead of the external control
 //            if (req.results.length() >= req.limit) {
-
                 // Send Uri back to JavaScript for viewing image
                 pendingRequests.resolveWithSuccess(req);
 //            } else {
