@@ -84,14 +84,6 @@ xmlns:android="http://schemas.android.com/apk/res/android"
 
         </config-file>
 
-<!--        <resource-file src="media_capabilities.xml" target="res/xml/media_capabilities.xml" parent="/*"/>-->
-<!--        <config-file target="AndroidManifest.xml" parent="/*">-->
-
-<!--            <property-->
-<!--                android:name="android.media.PROPERTY_MEDIA_CAPABILITIES"-->
-<!--                android:resource="@xml/media_capabilities" />-->
-
-<!--        </config-file>-->
 
         <source-file src="src/android/Capture.java" target-dir="src/org/apache/cordova/mediacapture" />
         <source-file src="src/android/FileHelper.java" target-dir="src/org/apache/cordova/mediacapture" />
