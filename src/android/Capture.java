@@ -58,6 +58,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.util.Pair;
 
 
@@ -70,8 +71,7 @@ public class Capture extends CordovaPlugin {
     private static final String IMAGE_JPEG = "image/jpeg";
 
     private static final int CAPTURE_AUDIO = 0;     // Constant for capture audio
-    private static final int CAPTURE_IMAGE = 1;     // Constant for capture image
-    private static final int CAPTURE_VIDEO = 2;     // Constant for capture video
+    private static final int CAPTURE_IMAGE_OR_VIDEO = 1;     // Constant for capture image
     private static final String LOG_TAG = "Capture";
 
     private static final int CAPTURE_INTERNAL_ERR = 0;
@@ -92,7 +92,6 @@ public class Capture extends CordovaPlugin {
 
     private final PendingRequests pendingRequests = new PendingRequests();
 
-    private Intent[] intentArray;
     private int numPics;                            // Number of pictures before capture activity
     private Uri imageUri;
     private Uri videoUri;
@@ -141,7 +140,7 @@ public class Capture extends CordovaPlugin {
             this.captureAudio(pendingRequests.createRequest(CAPTURE_AUDIO, options, callbackContext));
         } else if (action.equals("captureImage")) {
 
-            this.captureImage(pendingRequests.createRequest(CAPTURE_IMAGE, options, callbackContext));
+            this.captureImageOrVideo(pendingRequests.createRequest(CAPTURE_IMAGE_OR_VIDEO, options, callbackContext));
         } else {
             return false;
         }
@@ -279,10 +278,9 @@ public class Capture extends CordovaPlugin {
     }
 
     /**
-     * The name is misleading and needs to be updated.
      * Sets up an intent to capture media.  Result handled by onActivityResult()
      */
-    private void captureImage(Request req) {
+    private void captureImageOrVideo(Request req) {
         if (isMissingCameraPermissions(req)) return;
 
         // Save the number of images currently on disk for later
@@ -403,7 +401,7 @@ public class Capture extends CordovaPlugin {
                         case CAPTURE_AUDIO:
                             onAudioActivityResult(req, intent);
                             break;
-                        case CAPTURE_IMAGE:
+                        case CAPTURE_IMAGE_OR_VIDEO:
 
                             if (checkURIResource(videoUri)) {
                                 onVideoActivityResult(req);
@@ -419,6 +417,7 @@ public class Capture extends CordovaPlugin {
         }
         // If canceled
         else if (resultCode == Activity.RESULT_CANCELED) {
+            CleanUpEmptyVideo();
             // If we have partial results send them back to the user
             if (req.results.length() > 0 && req.results != null) {
                 pendingRequests.resolveWithSuccess(req);
@@ -430,6 +429,7 @@ public class Capture extends CordovaPlugin {
         }
         // If something else
         else {
+            CleanUpEmptyVideo();
             // If we have partial results send them back to the user
             if (req.results.length() > 0) {
 
@@ -440,6 +440,28 @@ public class Capture extends CordovaPlugin {
 
                 pendingRequests.resolveWithFailure(req, createErrorObject(CAPTURE_NO_MEDIA_FILES, "Did not complete!"));
             }
+        }
+    }
+
+    /**
+     * An empty video file is created when the video camera launches.
+     * Delete this file if the user exits out of the camera before taking a video so we don't leave empty files on the phone
+     */
+    private void CleanUpEmptyVideo()
+    {
+        if(videoUri != null) {
+            //Run in runnable, since we cannot call getResourceApi in the UI thread
+            Runnable processActivityResult = new Runnable() {
+                @Override
+                public void run() {
+                    File videoFile = webView.getResourceApi().mapUriToFile(videoUri);
+                    if (videoFile.exists()) {
+                        videoFile.delete();
+                    }
+                }
+            };
+
+            this.cordova.getThreadPool().execute(processActivityResult);
         }
     }
 
@@ -656,9 +678,8 @@ public class Capture extends CordovaPlugin {
             case CAPTURE_AUDIO:
                 this.captureAudio(req);
                 break;
-            case CAPTURE_IMAGE:
-            case CAPTURE_VIDEO:
-                this.captureImage(req);
+            case CAPTURE_IMAGE_OR_VIDEO:
+                this.captureImageOrVideo(req);
                 break;
         }
     }
