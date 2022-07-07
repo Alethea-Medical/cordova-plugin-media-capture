@@ -70,8 +70,7 @@ public class Capture extends CordovaPlugin {
     private static final String IMAGE_JPEG = "image/jpeg";
 
     private static final int CAPTURE_AUDIO = 0;     // Constant for capture audio
-    private static final int CAPTURE_IMAGE = 1;     // Constant for capture image
-    private static final int CAPTURE_VIDEO = 2;     // Constant for capture video
+    private static final int CAPTURE_IMAGE_OR_VIDEO = 1;     // Constant for capture image
     private static final String LOG_TAG = "Capture";
 
     private static final int CAPTURE_INTERNAL_ERR = 0;
@@ -141,7 +140,7 @@ public class Capture extends CordovaPlugin {
             this.captureAudio(pendingRequests.createRequest(CAPTURE_AUDIO, options, callbackContext));
         } else if (action.equals("captureImage")) {
 
-            this.captureImage(pendingRequests.createRequest(CAPTURE_IMAGE, options, callbackContext));
+            this.captureImageOrVideo(pendingRequests.createRequest(CAPTURE_IMAGE_OR_VIDEO, options, callbackContext));
         } else {
             return false;
         }
@@ -279,10 +278,9 @@ public class Capture extends CordovaPlugin {
     }
 
     /**
-     * The name is misleading and needs to be updated.
      * Sets up an intent to capture media.  Result handled by onActivityResult()
      */
-    private void captureImage(Request req) {
+    private void captureImageOrVideo(Request req) {
         if (isMissingCameraPermissions(req)) return;
 
         // Save the number of images currently on disk for later
@@ -403,7 +401,7 @@ public class Capture extends CordovaPlugin {
                         case CAPTURE_AUDIO:
                             onAudioActivityResult(req, intent);
                             break;
-                        case CAPTURE_IMAGE:
+                        case CAPTURE_IMAGE_OR_VIDEO:
 
                             if (checkURIResource(videoUri)) {
                                 onVideoActivityResult(req);
@@ -656,9 +654,8 @@ public class Capture extends CordovaPlugin {
             case CAPTURE_AUDIO:
                 this.captureAudio(req);
                 break;
-            case CAPTURE_IMAGE:
-            case CAPTURE_VIDEO:
-                this.captureImage(req);
+            case CAPTURE_IMAGE_OR_VIDEO:
+                this.captureImageOrVideo(req);
                 break;
         }
     }
