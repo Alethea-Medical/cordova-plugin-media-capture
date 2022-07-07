@@ -58,6 +58,7 @@ import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.util.Pair;
 
 
@@ -91,7 +92,6 @@ public class Capture extends CordovaPlugin {
 
     private final PendingRequests pendingRequests = new PendingRequests();
 
-    private Intent[] intentArray;
     private int numPics;                            // Number of pictures before capture activity
     private Uri imageUri;
     private Uri videoUri;
@@ -417,6 +417,7 @@ public class Capture extends CordovaPlugin {
         }
         // If canceled
         else if (resultCode == Activity.RESULT_CANCELED) {
+            CleanUpEmptyVideo();
             // If we have partial results send them back to the user
             if (req.results.length() > 0 && req.results != null) {
                 pendingRequests.resolveWithSuccess(req);
@@ -428,6 +429,7 @@ public class Capture extends CordovaPlugin {
         }
         // If something else
         else {
+            CleanUpEmptyVideo();
             // If we have partial results send them back to the user
             if (req.results.length() > 0) {
 
@@ -438,6 +440,28 @@ public class Capture extends CordovaPlugin {
 
                 pendingRequests.resolveWithFailure(req, createErrorObject(CAPTURE_NO_MEDIA_FILES, "Did not complete!"));
             }
+        }
+    }
+
+    /**
+     * An empty video file is created when the video camera launches.
+     * Delete this file if the user exits out of the camera before taking a video so we don't leave empty files on the phone
+     */
+    private void CleanUpEmptyVideo()
+    {
+        if(videoUri != null) {
+            //Run in runnable, since we cannot call getResourceApi in the UI thread
+            Runnable processActivityResult = new Runnable() {
+                @Override
+                public void run() {
+                    File videoFile = webView.getResourceApi().mapUriToFile(videoUri);
+                    if (videoFile.exists()) {
+                        videoFile.delete();
+                    }
+                }
+            };
+
+            this.cordova.getThreadPool().execute(processActivityResult);
         }
     }
 
