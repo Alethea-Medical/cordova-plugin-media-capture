@@ -517,7 +517,44 @@ public class Capture extends CordovaPlugin {
 
 
     public void onImageActivityResult(Request req) {
-        // Add image to results
+          String exifOrientation = null;
+
+        //preserve the original rotation of the image
+        try (InputStream inputStream = cordova.getContext().getContentResolver().openInputStream(imageUri)){
+
+            ExifInterface oldExif = new ExifInterface(inputStream);
+            exifOrientation = oldExif.getAttribute(ExifInterface.TAG_ORIENTATION);
+            Log.e("orientation", exifOrientation);
+        } catch (IOException e) {
+                e.printStackTrace();
+        }
+
+
+        //compress the image
+        try (InputStream imageStream = cordova.getActivity().getContentResolver().openInputStream(imageUri)){
+
+            Bitmap bmp = BitmapFactory.decodeStream(imageStream);
+
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.JPEG, 70, stream);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        //reapply the original rotation after compression
+        try  (InputStream inputStream = cordova.getContext().getContentResolver().openInputStream(imageUri)){
+            // Log.e("bitmapCompression",exifOrientation);
+            if (exifOrientation != null) {
+                ExifInterface newExif = new ExifInterface(inputStream);
+                newExif.setAttribute(ExifInterface.TAG_ORIENTATION, exifOrientation);
+              //  Log.e("bitCompressionNew",newExif.getAttribute(ExifInterface.TAG_ORIENTATION));
+                newExif.saveAttributes();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         req.results.put(createMediaFile(imageUri));
         checkForDuplicateImage();
 
