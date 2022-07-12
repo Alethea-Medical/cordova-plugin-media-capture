@@ -20,8 +20,10 @@ package org.apache.cordova.mediacapture;
 
 import static java.lang.Boolean.valueOf;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -29,6 +31,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import android.content.ActivityNotFoundException;
+import android.graphics.Bitmap;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.os.Build;
 import android.os.Bundle;
 
@@ -60,6 +65,8 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.util.Pair;
+
+import androidx.annotation.RequiresApi;
 
 
 public class Capture extends CordovaPlugin {
@@ -395,6 +402,7 @@ public class Capture extends CordovaPlugin {
         // Result received okay
         if (resultCode == Activity.RESULT_OK) {
             Runnable processActivityResult = new Runnable() {
+                @RequiresApi(api = Build.VERSION_CODES.N)
                 @Override
                 public void run() {
                     switch (req.action) {
@@ -516,6 +524,7 @@ public class Capture extends CordovaPlugin {
     }
 
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     public void onImageActivityResult(Request req) {
    
         String path = null;
@@ -544,7 +553,7 @@ public class Capture extends CordovaPlugin {
         pendingRequests.resolveWithSuccess(req);
     }
     
- public static Bitmap rotateImage(Bitmap source, float angle) {
+    public static Bitmap rotateImage(Bitmap source, float angle) {
         Matrix matrix = new Matrix();
         matrix.postRotate(angle);
         return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(),
