@@ -517,14 +517,88 @@ public class Capture extends CordovaPlugin {
 
 
     public void onImageActivityResult(Request req) {
-        // Add image to results
-        req.results.put(createMediaFile(imageUri));
+   
+        String path = null;
+        try (InputStream imageStream = cordova.getActivity().getContentResolver().openInputStream(imageUri)){
+
+            Bitmap bmp = BitmapFactory.decodeStream(imageStream);
+
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.JPEG, 80, stream);
+            byte[] byteArray = stream.toByteArray();
+            bmp = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
+
+            bmp = rotateImage(bmp, 90);
+            path = MediaStore.Images.Media.insertImage(cordova.getContext().getContentResolver(), bmp, "Title", null);
+            copyExif(imageUri, path);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+      
+        req.results.put(createMediaFile(Uri.parse(path)));
         checkForDuplicateImage();
 
-            // Send Uri back to JavaScript for viewing image
-            pendingRequests.resolveWithSuccess(req);
+        // Send Uri back to JavaScript for viewing image
+        pendingRequests.resolveWithSuccess(req);
     }
+    
+ public static Bitmap rotateImage(Bitmap source, float angle) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(angle);
+        return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(),
+                matrix, true);
 
+    }
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void copyExif(Uri imageUri, String newPath) throws IOException
+    {
+        try (InputStream inputStream = cordova.getContext().getContentResolver().openInputStream(imageUri)){
+        ExifInterface oldExif = new ExifInterface(inputStream);
+
+        String[] attributes = new String[]
+                {
+                        ExifInterface.TAG_APERTURE,
+                        ExifInterface.TAG_DATETIME,
+                        ExifInterface.TAG_DATETIME_DIGITIZED,
+                        ExifInterface.TAG_EXPOSURE_TIME,
+                        ExifInterface.TAG_FLASH,
+                        ExifInterface.TAG_FOCAL_LENGTH,
+                        ExifInterface.TAG_GPS_ALTITUDE,
+                        ExifInterface.TAG_GPS_ALTITUDE_REF,
+                        ExifInterface.TAG_GPS_DATESTAMP,
+                        ExifInterface.TAG_GPS_LATITUDE,
+                        ExifInterface.TAG_GPS_LATITUDE_REF,
+                        ExifInterface.TAG_GPS_LONGITUDE,
+                        ExifInterface.TAG_GPS_LONGITUDE_REF,
+                        ExifInterface.TAG_GPS_PROCESSING_METHOD,
+                        ExifInterface.TAG_GPS_TIMESTAMP,
+                        ExifInterface.TAG_IMAGE_LENGTH,
+                        ExifInterface.TAG_IMAGE_WIDTH,
+                        ExifInterface.TAG_ISO,
+                        ExifInterface.TAG_MAKE,
+                        ExifInterface.TAG_MODEL,
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.TAG_SUBSEC_TIME,
+                        ExifInterface.TAG_SUBSEC_TIME_DIG,
+                        ExifInterface.TAG_SUBSEC_TIME_ORIG,
+                        ExifInterface.TAG_WHITE_BALANCE
+                };
+
+        ExifInterface newExif = new ExifInterface(newPath);
+        for (int i = 0; i < attributes.length; i++)
+        {
+            String value = oldExif.getAttribute(attributes[i]);
+            if (value != null)
+                newExif.setAttribute(attributes[i], value);
+        }
+        newExif.saveAttributes();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
     public void onVideoActivityResult(Request req) {
         Uri data = null;
         // Get the uri of the video clip
