@@ -348,8 +348,7 @@ public class Capture extends CordovaPlugin {
         //set video save path in the intent
         takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri);
         takeVideoIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        
-        
+
         if (Build.VERSION.SDK_INT > 7) {
             takeVideoIntent.putExtra("android.intent.extra.durationLimit", req.duration);
             takeVideoIntent.putExtra("android.intent.extra.videoQuality", req.quality);
@@ -404,11 +403,9 @@ public class Capture extends CordovaPlugin {
                             break;
                         case CAPTURE_IMAGE_OR_VIDEO:
                             if (checkURIResource(videoUri)) {
-                                Log.d("pastrami", "video result");
                                 onVideoActivityResult(req);
                             }
                             else {
-                                Log.d("pastrami", "image result");
                                 onImageActivityResult(req);
                             }
                             break;
