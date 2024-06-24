@@ -356,7 +356,6 @@ public class Capture extends CordovaPlugin {
         takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri);
         takeVideoIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-
         if (Build.VERSION.SDK_INT > 7) {
             takeVideoIntent.putExtra("android.intent.extra.durationLimit", req.duration);
             takeVideoIntent.putExtra("android.intent.extra.videoQuality", req.quality);
@@ -399,6 +398,7 @@ public class Capture extends CordovaPlugin {
      */
     public void onActivityResult(int requestCode, int resultCode, final Intent intent) {
         final Request req = pendingRequests.get(requestCode);
+
         // Result received okay
         if (resultCode == Activity.RESULT_OK) {
             Runnable processActivityResult = new Runnable() {
@@ -410,10 +410,10 @@ public class Capture extends CordovaPlugin {
                             onAudioActivityResult(req, intent);
                             break;
                         case CAPTURE_IMAGE_OR_VIDEO:
-
                             if (checkURIResource(videoUri)) {
                                 onVideoActivityResult(req);
-                            } else {
+                            }
+                            else {
                                 onImageActivityResult(req);
                             }
                             break;
@@ -427,25 +427,23 @@ public class Capture extends CordovaPlugin {
         else if (resultCode == Activity.RESULT_CANCELED) {
             CleanUpEmptyVideo();
             // If we have partial results send them back to the user
-            if (req.results.length() > 0 && req.results != null) {
+            if (req != null && req.results != null && req.results.length() > 0) {
                 pendingRequests.resolveWithSuccess(req);
             }
             // user canceled the action
-            else {
+            else if(req != null){
                 pendingRequests.resolveWithFailure(req, createErrorObject(CAPTURE_NO_MEDIA_FILES, "Canceled."));
             }
         }
         // If something else
         else {
             CleanUpEmptyVideo();
-            // If we have partial results send them back to the user
-            if (req.results.length() > 0) {
-
+            // If we have partial results send them back to the userI
+            if (req != null && req.results != null && req.results.length() > 0) {
                 pendingRequests.resolveWithSuccess(req);
             }
             // something bad happened
-            else {
-
+            else if(req != null){
                 pendingRequests.resolveWithFailure(req, createErrorObject(CAPTURE_NO_MEDIA_FILES, "Did not complete!"));
             }
         }
@@ -463,7 +461,7 @@ public class Capture extends CordovaPlugin {
                 @Override
                 public void run() {
                     File videoFile = webView.getResourceApi().mapUriToFile(videoUri);
-                    if (videoFile.exists()) {
+                    if (videoFile != null && videoFile.exists()) {
                         videoFile.delete();
                     }
                 }
